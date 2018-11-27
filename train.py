@@ -108,7 +108,7 @@ def train(args, epoch, net, trainLoader, optimizer, trainF):
     nProcessed = 0
     nTrain = len(trainLoader.dataset)
     for batch_idx, (data, target) in enumerate(trainLoader):
-        net.hidden = net.initHidden()
+        net.hidden = net.init_hidden()
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         data, target = Variable(data), Variable(target)
@@ -156,9 +156,9 @@ def test(args, epoch, net, testLoader, optimizer, testF):
 
 def adjust_opt(optAlg, optimizer, epoch):
     if optAlg == 'sgd':
-        if epoch < 150: lr = 1e-1
-        elif epoch == 150: lr = 1e-2
-        elif epoch == 225: lr = 1e-3
+        if epoch < 50: lr = 1e-1
+        elif epoch == 80: lr = 1e-2
+        elif epoch == 100: lr = 1e-3
         else: return
 
         for param_group in optimizer.param_groups:

@@ -87,11 +87,11 @@ class DenseNet(nn.Module):
 
         self.batchSize = batchSize
         self.hiddenDim = nChannels
-        self.hidden = self.initHidden()
+        self.hidden = self.init_hidden()
         self.lstm = nn.LSTM(nChannels, self.hiddenDim, bidirectional=True)
         self.repeats = 5
 
-        self.bn2 = nn.BatchNorm2d(hiddenDim)
+        self.bn2 = nn.BatchNorm2d(self.hiddenDim)
         self.fc = nn.Linear(self.hiddenDim, nClasses)
 
         for m in self.modules():
@@ -124,10 +124,10 @@ class DenseNet(nn.Module):
         for _ in range(self.repeats):
             lstmOut, self.hidden = self.lstm(out.view(1, self.batchSize, -1), self.hidden)
 
-        out = self.bn2(lstmOut)
+        ## out = self.bn2(lstmOut)
         out = F.log_softmax(self.fc(out))
         return out
 
-    def init_hidden(self, x):
+    def init_hidden(self):
         return (torch.zeros(2, self.batchSize, self.hiddenDim),
                 torch.zeros(2, self.batchSize, self.hiddenDim))
