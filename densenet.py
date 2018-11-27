@@ -58,15 +58,12 @@ class Transition(nn.Module):
 
 
 class DenseNet(nn.Module):
-    def __init__(self, growthRate, depth, reduction, nClasses, bottleneck, hiddenDim):
+    def __init__(self, growthRate, depth, reduction, nClasses, bottleneck, batchSize):
         super(DenseNet, self).__init__()
 
         nDenseBlocks = (depth-4) // 3
         if bottleneck:
             nDenseBlocks //= 2
-
-        self.hiddenDim = hiddenDim
-        self.hidden = self.init_hidden()
 
         nChannels = 2*growthRate
         self.conv1 = nn.Conv2d(3, nChannels, kernel_size=3, padding=1,
@@ -87,7 +84,15 @@ class DenseNet(nn.Module):
         nChannels += nDenseBlocks*growthRate
 
         self.bn1 = nn.BatchNorm2d(nChannels)
-        self.fc = nn.Linear(nChannels, nClasses)
+
+        self.batchSize = batchSize
+        self.hiddenDim = nChannels
+        self.hidden = self.initHidden()
+        self.lstm = nn.LSTM(nChannels, self.hiddenDim, bidirectional=True)
+        self.repeats = 5
+
+        self.bn2 = nn.BatchNorm2d(hiddenDim)
+        self.fc = nn.Linear(self.hiddenDim, nClasses)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -115,8 +120,14 @@ class DenseNet(nn.Module):
         out = self.trans2(self.dense2(out))
         out = self.dense3(out)
         out = torch.squeeze(F.avg_pool2d(F.relu(self.bn1(out)), 8))
+
+        for _ in range(self.repeats):
+            lstmOut, self.hidden = self.lstm(out.view(1, self.batchSize, -1), self.hidden)
+
+        out = self.bn2(lstmOut)
         out = F.log_softmax(self.fc(out))
         return out
 
     def init_hidden(self, x):
-        return torch.zeros(1, 1, self.hiddenDim)
+        return (torch.zeros(2, self.batchSize, self.hiddenDim),
+                torch.zeros(2, self.batchSize, self.hiddenDim))

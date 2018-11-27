@@ -75,7 +75,7 @@ def main():
         batch_size=args.batchSz, shuffle=False, **kwargs)
 
     net = densenet.DenseNet(growthRate=12, depth=100, reduction=0.5,
-                            bottleneck=True, nClasses=10)
+                            bottleneck=True, nClasses=10, batchSize=args.batchSz)
 
     print('  + Number of params: {}'.format(
         sum([p.data.nelement() for p in net.parameters()])))
@@ -108,6 +108,7 @@ def train(args, epoch, net, trainLoader, optimizer, trainF):
     nProcessed = 0
     nTrain = len(trainLoader.dataset)
     for batch_idx, (data, target) in enumerate(trainLoader):
+        net.hidden = net.initHidden()
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         data, target = Variable(data), Variable(target)
@@ -134,6 +135,7 @@ def test(args, epoch, net, testLoader, optimizer, testF):
     test_loss = 0
     incorrect = 0
     for data, target in testLoader:
+        net.hidden = net.initHidden()
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         data, target = Variable(data, volatile=True), Variable(target)
