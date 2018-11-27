@@ -24,7 +24,7 @@ import shutil
 import setproctitle
 
 import densenet
-import make_graph
+# import make_graph
 
 def main():
     parser = argparse.ArgumentParser()

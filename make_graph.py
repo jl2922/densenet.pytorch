@@ -1,4 +1,5 @@
 # From https://gist.github.com/apaszke/01aae7a0494c55af6242f06fad1f8b70
+import graphviz
 from graphviz import Digraph
 from torch.autograd import Variable
 
