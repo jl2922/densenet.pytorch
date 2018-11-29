@@ -26,7 +26,7 @@ import densenet
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--batchSz', type=int, default=64)
+    parser.add_argument('--batchSz', type=int, default=256)
     parser.add_argument('--nEpochs', type=int, default=300)
     parser.add_argument('--no-cuda', action='store_true')
     parser.add_argument('--save')
@@ -77,6 +77,9 @@ def main():
     print('  + Number of params: {}'.format(
         sum([p.data.nelement() for p in net.parameters()])))
     if args.cuda:
+        if torch.cuda.device_count() > 1:
+            net = nn.DataParallel(net)
+            print("Using", torch.cuda.device_count(), "GPUs")
         net = net.cuda()
 
     if args.opt == 'sgd':
