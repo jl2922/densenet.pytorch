@@ -154,9 +154,9 @@ def test(args, epoch, net, testLoader, optimizer, testF):
 
 def adjust_opt(optAlg, optimizer, epoch):
     if optAlg == 'sgd':
-        if epoch < 150: lr = 1e-1
-        elif epoch == 150: lr = 1e-2
-        elif epoch == 225: lr = 1e-3
+        if epoch < 70: lr = 1e-1
+        elif epoch == 70: lr = 1e-2
+        elif epoch == 100: lr = 1e-3
         else: return
 
         for param_group in optimizer.param_groups:
