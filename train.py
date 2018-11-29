@@ -26,7 +26,7 @@ import densenet
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--batchSz', type=int, default=256)
+    parser.add_argument('--batchSz', type=int, default=512)
     parser.add_argument('--nEpochs', type=int, default=300)
     parser.add_argument('--no-cuda', action='store_true')
     parser.add_argument('--save')
@@ -69,7 +69,7 @@ def main():
     testLoader = DataLoader(
         dset.CIFAR100(root='cifar', train=False, download=True,
                      transform=testTransform),
-        batch_size=args.batchSz, shuffle=False, **kwargs)
+        batch_size=args.batchSz // 2, shuffle=False, **kwargs)
 
     net = densenet.DenseNet(growthRate=12, depth=100, reduction=0.5,
                             bottleneck=True, nClasses=100)
