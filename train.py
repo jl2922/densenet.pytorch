@@ -21,10 +21,8 @@ import math
 
 import shutil
 
-import setproctitle
-
 import densenet
-import make_graph
+# import make_graph
 
 def main():
     parser = argparse.ArgumentParser()
@@ -39,7 +37,6 @@ def main():
 
     args.cuda = not args.no_cuda and torch.cuda.is_available()
     args.save = args.save or 'work/densenet.base'
-    setproctitle.setproctitle(args.save)
 
     torch.manual_seed(args.seed)
     if args.cuda:
