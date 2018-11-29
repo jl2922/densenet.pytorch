@@ -63,16 +63,16 @@ def main():
 
     kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
     trainLoader = DataLoader(
-        dset.CIFAR10(root='cifar', train=True, download=True,
+        dset.CIFAR100(root='cifar', train=True, download=True,
                      transform=trainTransform),
         batch_size=args.batchSz, shuffle=True, **kwargs)
     testLoader = DataLoader(
-        dset.CIFAR10(root='cifar', train=False, download=True,
+        dset.CIFAR100(root='cifar', train=False, download=True,
                      transform=testTransform),
         batch_size=args.batchSz, shuffle=False, **kwargs)
 
     net = densenet.DenseNet(growthRate=12, depth=100, reduction=0.5,
-                            bottleneck=True, nClasses=10)
+                            bottleneck=True, nClasses=100)
 
     print('  + Number of params: {}'.format(
         sum([p.data.nelement() for p in net.parameters()])))
