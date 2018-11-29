@@ -32,6 +32,7 @@ def main():
     parser.add_argument('--nEpochs', type=int, default=300)
     parser.add_argument('--no-cuda', action='store_true')
     parser.add_argument('--save')
+    parser.add_argument('--reload', type=bool, default=False)
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--opt', type=str, default='sgd',
                         choices=('sgd', 'adam', 'rmsprop'))
@@ -66,16 +67,16 @@ def main():
 
     kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
     trainLoader = DataLoader(
-        dset.CIFAR10(root='cifar', train=True, download=True,
+        dset.CIFAR100(root='cifar', train=True, download=True,
                      transform=trainTransform),
         batch_size=args.batchSz, shuffle=True, **kwargs)
     testLoader = DataLoader(
-        dset.CIFAR10(root='cifar', train=False, download=True,
+        dset.CIFAR100(root='cifar', train=False, download=True,
                      transform=testTransform),
-        batch_size=args.batchSz, shuffle=False, **kwargs)
+        batch_size=args.batchSz // 2, shuffle=False, **kwargs)
 
-    net = densenet.DenseNet(growthRate=12, depth=100, reduction=0.5,
-                            bottleneck=True, nClasses=10, batchSize=args.batchSz)
+    net = densenet.DenseNet(growthRate=24, depth=100, reduction=0.5,
+                            bottleneck=True, nClasses=100)
 
     print('  + Number of params: {}'.format(
         sum([p.data.nelement() for p in net.parameters()])))
@@ -93,6 +94,9 @@ def main():
     trainF = open(os.path.join(args.save, 'train.csv'), 'w')
     testF = open(os.path.join(args.save, 'test.csv'), 'w')
 
+    if args.reload:
+        net = torch.load(os.path.join(args.save, 'latest.pth'))
+
     for epoch in range(1, args.nEpochs + 1):
         adjust_opt(args.opt, optimizer, epoch)
         train(args, epoch, net, trainLoader, optimizer, trainF)
@@ -108,9 +112,11 @@ def train(args, epoch, net, trainLoader, optimizer, trainF):
     nProcessed = 0
     nTrain = len(trainLoader.dataset)
     for batch_idx, (data, target) in enumerate(trainLoader):
-        net.hidden = net.init_hidden()
+        batchSize = data.size()[0]
+        net.hidden = net.init_hidden(batchSize)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
+            net.hidden = (net.hidden[0].cuda(), net.hidden[1].cuda())
         data, target = Variable(data), Variable(target)
         optimizer.zero_grad()
         output = net(data)
@@ -121,11 +127,11 @@ def train(args, epoch, net, trainLoader, optimizer, trainF):
         nProcessed += len(data)
         pred = output.data.max(1)[1] # get the index of the max log-probability
         incorrect = pred.ne(target.data).cpu().sum()
-        err = 100.*incorrect/len(data)
+        err = 100.0 * incorrect.numpy() / len(data)
         partialEpoch = epoch + batch_idx / len(trainLoader) - 1
-        print('Train Epoch: {:.2f} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tError: {:.6f}'.format(
-            partialEpoch, nProcessed, nTrain, 100. * batch_idx / len(trainLoader),
-            loss.data[0], err))
+        if batch_idx % 10 == 0:
+            print('Train Epoch: %.2f [%d/%d]\tLoss: {%.4f}\tError: {%.2f}' % (
+                partialEpoch, nProcessed, nTrain, loss.data[0], err))
 
         trainF.write('{},{},{}\n'.format(partialEpoch, loss.data[0], err))
         trainF.flush()
@@ -134,21 +140,27 @@ def test(args, epoch, net, testLoader, optimizer, testF):
     net.eval()
     test_loss = 0
     incorrect = 0
+    start_id = 0
     for data, target in testLoader:
-        net.hidden = net.initHidden()
+        batchSize = data.size()[0]
+        net.hidden = net.init_hidden(batchSize)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
+            net.hidden = (net.hidden[0].cuda(), net.hidden[1].cuda())
         data, target = Variable(data, volatile=True), Variable(target)
         output = net(data)
         test_loss += F.nll_loss(output, target).data[0]
         pred = output.data.max(1)[1] # get the index of the max log-probability
         incorrect += pred.ne(target.data).cpu().sum()
+        indices = torch.squeeze(torch.nonzero(pred.ne(target.data).cpu()))
+        print(indices + start_id)
+        start_id += batchSize
 
     test_loss = test_loss
     test_loss /= len(testLoader) # loss function already averages over batch size
     nTotal = len(testLoader.dataset)
-    err = 100.*incorrect/nTotal
-    print('\nTest set: Average loss: {:.4f}, Error: {}/{} ({:.0f}%)\n'.format(
+    err = 100.0 * incorrect.numpy() / nTotal
+    print('\nTest set: Average loss: {:.4f}, Error: {}/{} ({:.2f}%)\n'.format(
         test_loss, incorrect, nTotal, err))
 
     testF.write('{},{},{}\n'.format(epoch, test_loss, err))
@@ -156,9 +168,9 @@ def test(args, epoch, net, testLoader, optimizer, testF):
 
 def adjust_opt(optAlg, optimizer, epoch):
     if optAlg == 'sgd':
-        if epoch < 50: lr = 1e-1
-        elif epoch == 80: lr = 1e-2
-        elif epoch == 100: lr = 1e-3
+        if epoch <= 40: lr = 1e-1
+        elif epoch == 60: lr = 1e-2
+        elif epoch == 80: lr = 1e-3
         else: return
 
         for param_group in optimizer.param_groups:
