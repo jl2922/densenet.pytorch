@@ -113,10 +113,10 @@ def train(args, epoch, net, trainLoader, optimizer, trainF):
     nTrain = len(trainLoader.dataset)
     for batch_idx, (data, target) in enumerate(trainLoader):
         batchSize = data.size()[0]
-        net.hidden = net.init_hidden(batchSize)
+        net.hiddenStarter = net.init_hidden_starter(batchSize)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
-            net.hidden = (net.hidden[0].cuda(), net.hidden[1].cuda())
+            net.hiddenStarter = net.hiddenStarter.cuda()
         data, target = Variable(data), Variable(target)
         optimizer.zero_grad()
         output = net(data)
@@ -143,10 +143,10 @@ def test(args, epoch, net, testLoader, optimizer, testF):
     start_id = 0
     for data, target in testLoader:
         batchSize = data.size()[0]
-        net.hidden = net.init_hidden(batchSize)
+        net.hiddenStarter = net.init_hidden_starter(batchSize)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
-            net.hidden = (net.hidden[0].cuda(), net.hidden[1].cuda())
+            net.hiddenStarter = net.hiddenStarter.cuda()
         data, target = Variable(data, volatile=True), Variable(target)
         output = net(data)
         test_loss += F.nll_loss(output, target).data[0]
@@ -167,14 +167,14 @@ def test(args, epoch, net, testLoader, optimizer, testF):
     testF.flush()
 
 def adjust_opt(optAlg, optimizer, epoch):
-    if optAlg == 'sgd':
-        if epoch <= 40: lr = 1e-1
-        elif epoch == 60: lr = 1e-2
-        elif epoch == 80: lr = 1e-3
-        else: return
+    # if optAlg == 'sgd':
+    if epoch <= 40: lr = 1e-1
+    elif epoch == 60: lr = 1e-2
+    elif epoch == 80: lr = 1e-3
+    else: return
 
-        for param_group in optimizer.param_groups:
-            param_group['lr'] = lr
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
 
 if __name__=='__main__':
     main()

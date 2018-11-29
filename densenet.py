@@ -50,7 +50,7 @@ class Transition(nn.Module):
         self.bn1 = nn.BatchNorm2d(nChannels)
         self.conv1 = nn.Conv2d(nChannels, nOutChannels, kernel_size=1,
                                bias=False)
-        self.dropout = nn.Dropout(p=0.5)
+        self.dropout = nn.Dropout(p=0.2)
 
     def forward(self, x):
         out = self.conv1(F.relu(self.bn1(x)))
@@ -87,27 +87,28 @@ class DenseNet(nn.Module):
 
         self.bn1 = nn.BatchNorm2d(nChannels)
 
-        self.hiddenDim = nChannels
-        self.nHiddenLayers = 1
-        self.hidden = None
-        self.lstm = nn.LSTM(nChannels, self.hiddenDim, self.nHiddenLayers)
+        self.hiddenDim = 1024
+        self.nHiddenLayers = 4
+        self.hiddenInitFc1 = nn.Linear(1, self.hiddenDim)
+        self.hiddenInitFc2= nn.Linear(1, self.hiddenDim)
+        self.lstm = nn.LSTM(nChannels, self.hiddenDim, self.nHiddenLayers, dropout=0.1)
         self.hiddenTotal = self.hiddenDim * self.nHiddenLayers
-        self.repeats = 20
+        self.repeats = 10
 
         self.bn2 = nn.BatchNorm1d(self.hiddenDim)
-        self.dropout = nn.Dropout(p=0.5)
-        self.fc1 = nn.Linear(self.hiddenDim, self.hiddenDim * 2)
-        self.fc2 = nn.Linear(self.hiddenDim * 2, nClasses)
+        self.dropout = nn.Dropout(p=0.2)
+        # self.fc1 = nn.Linear(self.hiddenDim, self.hiddenDim * 2)
+        self.fc2 = nn.Linear(self.hiddenDim, nClasses)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
                 m.weight.data.normal_(0, math.sqrt(2. / n))
             elif isinstance(m, nn.BatchNorm2d):
-                m.weight.data.fill_(1)
-                m.bias.data.zero_()
+                m.weight.data.normal_(1, 1e-3)
+                m.bias.data.normal_(0, 1e-3)
             elif isinstance(m, nn.Linear):
-                m.bias.data.zero_()
+                m.bias.data.normal_(0, 1e-3)
 
     def _make_dense(self, nChannels, growthRate, nDenseBlocks, bottleneck):
         layers = []
@@ -130,7 +131,7 @@ class DenseNet(nn.Module):
         # print(out.size())
         # out = torch.squeeze(out.view(out.size()[0], out.size()[1], -1))
         # out = out.unsqueeze(0)
-        hidden = (out, out)
+        hidden = (self.hiddenInitFc1(self.hiddenStarter), self.hiddenInitFc2(self.hiddenStarter))
 
         for _ in range(self.repeats):
             # lstmOut, self.hidden = self.lstm(out, self.hidden)
@@ -139,9 +140,10 @@ class DenseNet(nn.Module):
         out = torch.squeeze(lstmOut)
         out = self.bn2(out)
         out = self.dropout(out)
-        out = F.log_softmax(self.fc2(self.fc1(out)))
+        out = F.log_softmax(self.fc2(out))
         return out
 
-    def init_hidden(self, batchSize):
-        return (torch.zeros(self.nHiddenLayers, batchSize, self.hiddenDim),
-                torch.zeros(self.nHiddenLayers, batchSize, self.hiddenDim))
+    def init_hidden_starter(self, batchSize):
+        return torch.zeros(self.nHiddenLayers, batchSize, 1)
+        # return (torch.zeros(self.nHiddenLayers, batchSize, self.hiddenDim),
+        #        torch.zeros(self.nHiddenLayers, batchSize, self.hiddenDim))
